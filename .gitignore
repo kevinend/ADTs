@@ -1,0 +1,8 @@
+# .build directories used by Jai during compilation
+**/.build
+
+# executables, library or debug files generated during compliations
+*.exe
+*.lib
+*.dll
+*.pdb
