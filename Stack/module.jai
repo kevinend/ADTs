@@ -1,7 +1,4 @@
 // File implements a variable length Stack data structure.
-// 
-// TODO: where does this directory have to be to import it?
-//       can you specify a relative path? I don't remember.
 
 #scope_export
 
@@ -11,7 +8,7 @@ Stack :: struct (T: Type) {
 }
 
 // Returns true if the stack contains no elements;
-empty :: ( stack: *Stack ) -> ( bool ) {
+is_empty :: ( stack: *Stack ) -> ( bool ) {
 	return stack.count == 0;
 }
 
