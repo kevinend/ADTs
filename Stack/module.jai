@@ -1,4 +1,5 @@
 // File implements a variable length Stack data structure.
+// The 'Stack' instance always points to the last pushed element onto the stack or null when the stack is empty.
 
 #scope_export
 
