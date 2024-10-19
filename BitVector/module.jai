@@ -147,15 +147,14 @@ get_set_bit_count :: ( bit_vector: *BitVector ) -> ( num_set_bits: int ) {
 
 set_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 
-	// 'Set' the range of bits between low and high to a value of 1.
+	// Set the range of bits between low and high to a value of 1.
 	assert( bit_vector != null );
 	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
 	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
 	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
 	if low/8 < high/8 {
-		// Bits that need separate span multiple bytes.
-		// Set the bits in the low byte, those in between the low and high byte, then the high byte.
+		// Bit range spans multiple bytes. Set the bits in the low-byte, those between the low and high-byte, then the high-byte.
 		bit_vector.bytes[low/8] |= msb_masks[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
@@ -185,6 +184,37 @@ set_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 		bit_vector.bytes[low/8] |= mask;
 	}
 	
+	return;
+}
+
+clear_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
+
+	// Set/Clear the range of bits between low and high to a value of 0 (zero).
+	// Implementation is based off of 'set_bits' but uses the complements of the masks and ANDs to clear bits in the range.
+
+	assert( bit_vector != null );
+	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
+	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
+	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
+
+	if low/8 < high/8 {
+		// Bit range spans multiple bytes. Set the bits in the low-byte, those between the low and high-byte, then the high-byte.
+		bit_vector.bytes[i] &= ~msb_masks[low%8];
+
+		for i: (low/8)+1..(high/8)-1 {
+			bit_vector.bytes[i] = 0;
+		}
+
+		bit_vector.bytes[high/8] &= ~lsb_masks[high%8];
+	}
+	else {
+		// Bit range falls within a single byte; clear the bits.
+		// See 'set_bits' for rationale behind bit mask.
+
+		mask := msb_masks[low%8] & lsb_masks[high%8];
+		bit_vector.bytes[low/8] &= ~mask;
+	}
+
 	return;
 }
 
