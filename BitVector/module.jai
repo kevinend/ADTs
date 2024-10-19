@@ -199,7 +199,7 @@ clear_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 
 	if low/8 < high/8 {
 		// Bit range spans multiple bytes. Set the bits in the low-byte, those between the low and high-byte, then the high-byte.
-		bit_vector.bytes[i] &= ~msb_masks[low%8];
+		bit_vector.bytes[low/8] &= ~msb_masks[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
 			bit_vector.bytes[i] = 0;

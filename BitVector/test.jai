@@ -18,6 +18,15 @@ main :: () {
 
 	BitVector.set_bits( x2, 0, 3 );
 	print( "Set the first four bits in x2, what does it say the bitcount is %\n", BitVector.get_set_bit_count( x2 ) );
+
+	BitVector.clear_bits( x1, 0, 7 );
+	print( "Cleared all bits, what does it say is the count == %\n", BitVector.get_set_bit_count( x1 ) );
+
+	BitVector.clear_bits( x2, 9, 15 );
+	print( "Cleared bits in the high range, should have removed just one == %\n", BitVector.get_set_bit_count( x2 ) );
+
+
+
 	
 	// Get total bytes
 
