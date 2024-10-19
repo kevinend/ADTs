@@ -145,44 +145,79 @@ get_set_bit_count :: ( bit_vector: *BitVector ) -> ( num_set_bits: int ) {
 	return set_bit_count;
 }
 
-set_bits :: ( bit_vector: *Bit_Vector, low: int, high: int ) {
+set_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 
 	// 'Set' the range of bits between low and high to a value of 1.
 	assert( bit_vector != null );
 	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
 	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
-	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  
+	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
-	// When the bit range spans multiple bytes you need to set the most-significant-bits of the low-byte and the least-significant bits of the high-byte.
-	//  Example: 
-	//		64-bit BitVector; Valid bit range [0,63]
-	//		set_bit( bit_vector = bv, low = 3, high = 58 )
-	//
-	//	Most-Significant bits of the low-order byte:
-	//  To find the low-byte take 'low'/ 8. Bits that need set within that byte are those GREATER THAN 'low' % 8.
-	//  In this example, the first byte (index = 0) needs ALL BUT the first three bits set. This is the same as saying that bits 4-7 need set.
-	//  A mask of 0xF8 (1111_1000) will make sure that the the most-significant bits starting AFTER the third bit is set.
-	//
-	//			1_1_1_1__1_0_0_0
-	//  Bit     7 6 5 4  3 2 1 0
-	//
-	// Least-Significant bits of the high-order byte:
-	//  To find the high-order byte take 'high'/ 8. Bits that need set within that byte are those LESS THAN 'high' % 8.
-	//  In this example, the last byte (index = 7) needs bits 0 through 2 set. A mask of 0x07 (0000_0111) will make sure that the least-significant bits starting FROM the zeroeth bit are set.
-	//   
-	//           0_0_0_0__0_1_1_1
-	//  Bit:     7 6 5 4  3 2 1 0
-	//
-	// Summary: 'low'  % 8 == 0 means all the bits in the byte need set
-	//          'high' % 8 == 0 means that the first bit in the byte needs set.
-	//           The MSB and LSB masks tables are built from each of these opposite persectives.
-	//
-	// All bytes in-between this range [('low'/8) + 1, ('high'/8)-1] need their bits set.
+	if low/8 < high/8 {
+		// Bits that need separate span multiple bytes.
+		// Set the bits in the low byte, those in between the low and high byte, then the high byte.
+		bit_vector.bytes[low/8] |= msb_masks[low%8];
 
+		for i: (low/8)+1..(high/8)-1 {
+			bit_vector.bytes[i] = 0xFF;
+		}
+
+		bit_vector.bytes[high/8] |= lsb_masks[high%8];	
+	}
+	else {
+		// Bits that need sets are in the same byte;
+		// The AND of the masks for the bits that need set within the byte are the AND of the msb and lsb for the respective byte indices.
+		// Example from the text (page 208):
+		//    set( 9, 13 )
+		//    9 % 8 = 1; mask in the msb table 0XFE
+		//   13 % 8 = 5; mask in the lsb table 0x3F
+		// 
+		//   0XFE: 1111_1110
+		//   0X3F: 0011_1111
+		//       ___________
+		//   AND : 0011_1110 | 0000_0000
+		//         ^       ^   ^       ^
+		//        15  ...  8   7  ...  0
+		//
+		// So the AND of the mask's returns a new mask that returns the range we are interested in [9,13] in this case.
+
+		mask := msb_masks[low%8] & lsb_masks[high%8];
+		bit_vector.bytes[low/8] |= mask;
+	}
+	
+	return;
 }
 
 #scope_file
 #import "Basic";
 
-msb_masks :: [8] u8 = .[ 0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80 ];
-lsb_masks :: [8] u8 = .[ 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF ];
+// When the bit range spans multiple bytes you need to set the most-significant-bits of the low-byte and the least-significant bits of the high-byte.
+// Use mask tables to extract or set specific bits.
+//
+//  Example: 
+//		64-bit BitVector; Valid bit range [0,63]
+//		set_bit( bit_vector = bv, low = 3, high = 58 )
+//
+//	Most-Significant bits of the low-order byte:
+//  To find the low-byte take 'low'/ 8. Bits that need set within that byte are those GREATER THAN 'low' % 8.
+//  In this example, the first byte (index = 0) needs ALL BUT the first three bits set. This is the same as saying that bits 4-7 need set.
+//  A mask of 0xF8 (1111_1000) will make sure that the the most-significant bits starting AFTER the third bit is set.
+//
+//			1_1_1_1__1_0_0_0
+//  Bit     7 6 5 4  3 2 1 0
+//
+// Least-Significant bits of the high-order byte:
+//  To find the high-order byte take 'high'/ 8. Bits that need set within that byte are those LESS THAN 'high' % 8.
+//  In this example, the last byte (index = 7) needs bits 0 through 2 set. A mask of 0x07 (0000_0111) will make sure that the least-significant bits starting FROM the zeroeth bit are set.
+//   
+//           0_0_0_0__0_1_1_1
+//  Bit:     7 6 5 4  3 2 1 0
+//
+// Summary: 'low'  % 8 == 0 means all the bits in the byte need set
+//          'high' % 8 == 0 means that the first bit in the byte needs set.
+//           The MSB and LSB masks tables are built from each of these opposite persectives.
+//
+// All bytes in-between this range [('low'/8) + 1, ('high'/8)-1] need their bits set.
+
+msb_masks : [8] u8 : .[ 0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80 ];
+lsb_masks : [8] u8 : .[ 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF ];

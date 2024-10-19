@@ -12,14 +12,16 @@ main :: () {
 	BitVector.update_bit( x1, 3,  1 );
 	BitVector.update_bit( x2, 4,  1 );
 	BitVector.update_bit( x2, 15, 1 );
-	
 
+	BitVector.set_bits( x1, 0, 7 );
+	print( "Set all bits, what does it say is the count == %\n", BitVector.get_set_bit_count( x1 ) );
+
+	BitVector.set_bits( x2, 0, 3 );
+	print( "Set the first four bits in x2, what does it say the bitcount is %\n", BitVector.get_set_bit_count( x2 ) );
+	
 	// Get total bytes
 
 	print( "Number of bytes == %, %\n", x1.num_bytes, x2.num_bytes );
-
-
-
 
 
 	sc1 := BitVector.get_set_bit_count( x1 );
