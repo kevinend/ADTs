@@ -9,9 +9,9 @@ main :: () {
 	c2 := BitVector.get_bit_count( x2 );
 	print( "c1 == %, c2 == %\n", c1, c2 );
 
-	BitVector.set_bit( x1, 3,  1 );
-	BitVector.set_bit( x2, 4,  1 );
-	BitVector.set_bit( x2, 15, 1 );
+	BitVector.update_bit( x1, 3,  1 );
+	BitVector.update_bit( x2, 4,  1 );
+	BitVector.update_bit( x2, 15, 1 );
 	
 
 	// Get total bytes

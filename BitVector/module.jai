@@ -1,4 +1,7 @@
-// File implements a Bit Vector ADT, which is "TODO"
+// File implements a Bit Vector
+// The user specifies the number of bits contained within the BitVector and the library exposes methods to manipulate those bits.
+// Note: The Bit Vector represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
+//       range for a Bit Vector containing n-bits is [0,n-1]. A 64-bit vector has valid indices [0,63].
 
 #scope_export
 
@@ -69,20 +72,20 @@ get_bit :: ( bit_vector: *BitVector, n: int ) -> ( bit: int ) {
 	
 	assert( bit_vector != null );
 	assert( n >= 0, "Can't find a bit whose index is less than 0." );
-	assert( n <= bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
+	assert( n < bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
 
 	byte := (bit_vector.bytes + n/8).*;
 	return (byte >> n%8) & 1;
 }
 
-set_bit :: ( bit_vector: *BitVector, n: int, bit_value: int ) -> ( previous_bit_value: int ) {
+update_bit :: ( bit_vector: *BitVector, n: int, bit_value: int ) -> ( previous_bit_value: int ) {
 
-	// Sets bit 'n' in the vector with the value supplied by the caller.
-	// Returns the previous bit value set at that bit index to the caller.
+	// Updates the bit_value supplied by the user into the n-th bit in the bit-vector.
+	// Returns the previous bit value of the n-th bit.
 
 	assert( bit_vector != null );
 	assert( n >= 0, "Can't find a bit whose index is less than 0." );
-	assert( n <= bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
+	assert( n <  bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
 	assert( bit_value == 1 || bit_value == 0, "Supplied bit value must be a one (1) or a zero (0)." );
 
 	previous_bit_value := get_bit( bit_vector, n );
@@ -107,7 +110,7 @@ get_set_bit_count :: ( bit_vector: *BitVector ) -> ( num_set_bits: int ) {
 	// David R Hanson uses a lookup table by splitting each byte into nibbles and doing a lookup to get the number of bits set in each nibble, summing across nibbles.
 	// Typically I would have just iterated over the bytes and checked every bit using shifts and ANDs. Going to try his approach.
 
-	nibbles_to_set_bits: [16] u8 = .[
+	nibbles_to_num_set_bits: [16] u8 = .[
 		 0   // 0
 		,1   // 1
 		,1   // 2
@@ -133,8 +136,8 @@ get_set_bit_count :: ( bit_vector: *BitVector ) -> ( num_set_bits: int ) {
 
 		byte := (bit_vector.bytes + i).*;	
 
-		hi_nibble := nibbles_to_set_bits[byte & 0x0F];
-		lo_nibble := nibbles_to_set_bits[byte >> 4  ];
+		hi_nibble := nibbles_to_num_set_bits[byte & 0x0F];
+		lo_nibble := nibbles_to_num_set_bits[byte >> 4  ];
 		
 		set_bit_count += hi_nibble + lo_nibble;
 	}
@@ -142,12 +145,44 @@ get_set_bit_count :: ( bit_vector: *BitVector ) -> ( num_set_bits: int ) {
 	return set_bit_count;
 }
 
+set_bits :: ( bit_vector: *Bit_Vector, low: int, high: int ) {
 
+	// 'Set' the range of bits between low and high to a value of 1.
+	assert( bit_vector != null );
+	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
+	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
+	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  
 
+	// When the bit range spans multiple bytes you need to set the most-significant-bits of the low-byte and the least-significant bits of the high-byte.
+	//  Example: 
+	//		64-bit BitVector; Valid bit range [0,63]
+	//		set_bit( bit_vector = bv, low = 3, high = 58 )
+	//
+	//	Most-Significant bits of the low-order byte:
+	//  To find the low-byte take 'low'/ 8. Bits that need set within that byte are those GREATER THAN 'low' % 8.
+	//  In this example, the first byte (index = 0) needs ALL BUT the first three bits set. This is the same as saying that bits 4-7 need set.
+	//  A mask of 0xF8 (1111_1000) will make sure that the the most-significant bits starting AFTER the third bit is set.
+	//
+	//			1_1_1_1__1_0_0_0
+	//  Bit     7 6 5 4  3 2 1 0
+	//
+	// Least-Significant bits of the high-order byte:
+	//  To find the high-order byte take 'high'/ 8. Bits that need set within that byte are those LESS THAN 'high' % 8.
+	//  In this example, the last byte (index = 7) needs bits 0 through 2 set. A mask of 0x07 (0000_0111) will make sure that the least-significant bits starting FROM the zeroeth bit are set.
+	//   
+	//           0_0_0_0__0_1_1_1
+	//  Bit:     7 6 5 4  3 2 1 0
+	//
+	// Summary: 'low'  % 8 == 0 means all the bits in the byte need set
+	//          'high' % 8 == 0 means that the first bit in the byte needs set.
+	//           The MSB and LSB masks tables are built from each of these opposite persectives.
+	//
+	// All bytes in-between this range [('low'/8) + 1, ('high'/8)-1] need their bits set.
 
-
-
+}
 
 #scope_file
 #import "Basic";
 
+msb_masks :: [8] u8 = .[ 0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80 ];
+lsb_masks :: [8] u8 = .[ 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF ];
