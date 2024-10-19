@@ -198,7 +198,7 @@ clear_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
 	if low/8 < high/8 {
-		// Bit range spans multiple bytes. Set the bits in the low-byte, those between the low and high-byte, then the high-byte.
+		// Bit range spans multiple bytes. Clear the bits in the low-byte, those between the low and high-byte, then the high-byte.
 		bit_vector.bytes[low/8] &= ~msb_masks[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
@@ -208,11 +208,38 @@ clear_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 		bit_vector.bytes[high/8] &= ~lsb_masks[high%8];
 	}
 	else {
-		// Bit range falls within a single byte; clear the bits.
-		// See 'set_bits' for rationale behind bit mask.
-
+		// Clear the bits that fall within a single byte. See 'set_bits' for rationale behind bit mask.
 		mask := msb_masks[low%8] & lsb_masks[high%8];
 		bit_vector.bytes[low/8] &= ~mask;
+	}
+
+	return;
+}
+
+not_bits :: ( bit_vector : *BitVector, low: int, high: int ) {
+
+	// Flip (logical not) the bits between low and high.
+	// Implementation is based off of 'set_bits' but uses the XOR logical operator to flip the bits in the range.
+
+	assert( bit_vector != null );
+	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
+	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
+	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
+
+	if low/8 < high/8 {
+		// Bit range spans multiple bytes. Flip the bits in the low-byte, those between the low and high-byte, then the high-byte.
+		bit_vector.bytes[low/8] ^= msb_mask[low%8];
+
+		for i: (low/8)+1..(high/8)-1 {
+			bit_vector.bytes[i] ^= 0xFF;
+		}
+
+		bit_vector.bytes[high/8] ^= lsb_mask[high%8];
+	}
+	else {
+		// Flip the bits that fall within a single byte. See 'set_bits' for rationale behind bit mask.
+		mask := msb_mask[low%8] & lsb_mask[high%8];
+		bit_vector.bytes[low/8] ^= mask;
 	}
 
 	return;
