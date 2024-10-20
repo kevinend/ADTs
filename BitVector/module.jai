@@ -3,6 +3,10 @@
 // Note: The Bit Vector represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
 //       range for a Bit Vector containing n-bits is [0,n-1]. A 64-bit vector has valid indices [0,63].
 
+// TODO: Introduce a local MemoryAddress type that bytes: MemoryAddress bytes.as_u8, bytes_as_u32, etc..
+// TODO: Implement, union, intersection, difference and then be done with this module! good lord this is a long one
+// TODO: Then clean this up as well, MemoryAddress type and some renaming of things to make it easier to read
+
 #scope_export
 
 BitVector :: struct {
@@ -94,10 +98,13 @@ update_bit :: ( bit_vector: *BitVector, n: int, bit_value: int ) -> ( previous_b
 		bit_vector.bytes[n/8] |= cast(u8) (1 << (n%8));
 	}
 	else {
-		// Bit at the index is either a 0 or 1 so we can AND with a 0 and always get the '0' we want in that bit
-		// To not clear out the other bits we set 1 in the n-th bit place then take the complement and AND that together with the target byte which
-		// will set the n-th bit to zero.
-		bit_vector.bytes[n/8] &= cast(u8) ~(1 << n%8);
+		// Bit at the index is either a 0 or 1 so we can AND with a 0 and always get the '0' we want in that bit.
+		// To avoid clearing out the other bits, we set 1 in the n-th bit place then take the complement and AND that together with the target byte which will set the n-th bit to zero.
+	
+		// Wont complie: bit_vector.bytes[n/8] &= cast(s8) ~(1 << (n%8));
+		// complement will generate a signed u8 that can't be put in the u8 location; aliasing the byte and applying the mask.
+		byte   := cast(*s8)*bit_vector.bytes[n/8];
+		byte.* &= cast( s8)~(1 << (n%8));
 	}
 
 	return previous_bit_value;
@@ -164,8 +171,8 @@ set_bits :: ( bit_vector: *BitVector, low: int, high: int ) {
 		bit_vector.bytes[high/8] |= lsb_masks[high%8];	
 	}
 	else {
-		// Bits that need sets are in the same byte;
-		// The AND of the masks for the bits that need set within the byte are the AND of the msb and lsb for the respective byte indices.
+		// Bit range specified falls within a single byte.
+		// The mask for the bits that need set within the byte are the AND of the msb and lsb for the respective byte indices.
 		// Example from the text (page 208):
 		//    set( 9, 13 )
 		//    9 % 8 = 1; mask in the msb table 0XFE
@@ -245,6 +252,156 @@ not_bits :: ( bit_vector : *BitVector, low: int, high: int ) {
 	return;
 }
 
+equal :: ( a: *BitVector, b: *BitVector ) -> ( bool )  {
+
+	// Compares the bit vectors and returns true if the bit vectors are equal and false otherwise.
+	assert( a != null && b != null );
+	assert( a.num_bits == b.num_bits, "Can't compare two bit vectors that do not contain the same number of bits/bit length\n." );
+
+	size := a.num_bytes / size_of(u32);
+
+	for i: 0..size-1 {
+		if a.bytes_as_u32[i] != b.bytes_as_u32[i] {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+is_subset_of :: ( a: *BitVector, b: *BitVector ) -> ( bool ) {
+
+	// Compares the bit vectors and returns whether a is a subset of b.
+	// A subset means that all set (1) bits in 'a' are correspondingly set in bit vector 'b'.	
+	assert( a != null && b != null );
+	assert( a.num_bits == b.num_bits, "Can't determine a subset of two bit vectors that do not contain the same number of bits/bit length.\n" );
+
+	count := a.num_bytes / size_of(u32);
+	for i: 0..count-1 {
+		A := a.bytes_as_u32[i];
+		B := b.bytes_as_u32[i];
+		if A & B != A {
+			// bits in 'a' not set in bit vector 'b' therefore not a subset
+			return false;
+		}
+	}
+
+	return true;
+} 
+
+is_proper_subset_of ::  ( a: *BitVector, b: *BitVector ) -> ( bool ) {
+
+	// Compares the bit vectors and returns whether 'a is a proper subset of 'b'.
+	// A proper subset means that all set (1) bits in 'a' are correspondingly set in bit vector 'b' but 'a' and 'b' are *not* equal.
+
+	assert( a != null && b != null );
+	assert( a.num_bits == b.num_bits, "Can't determine a proper subset when the bit vectors do not contain the same number of bits/bit length.\n" );
+
+	count := a.num_bytes / size_of(u32);
+	
+	matches := 0;
+	for i: 0..count-1 {
+		A := a.bytes_as_u32[i];
+		B := b.bytes_as_u32[i];
+
+		if A & B != A {
+			return false;	
+		}
+		else
+		if A == B {
+			matches += 1;
+		}
+	}
+
+	return matches != count;
+}
+
+union_bits :: ( a: *BitVector, b: *BitVector ) -> ( r: *BitVector ) {
+
+	// Implements the union of the two bit vectors.
+	// Result includes all set bits from both arguments.
+	// If an argument is null, that is interpreted as an empty bit set/vector.
+
+	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing a union of the bits\n" );
+	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform a union.\n" );
+
+	if b == null {
+		return copy( a );
+	}
+	else 
+	if a == null {
+		return copy( b );
+	}
+	else {
+		r := allocate( a.num_bits );
+		count := a.num_bytes / size_of(u32);
+		for i: 0..count-1 {
+			r.bytes_as_u32[i] = a.bytes_as_u32[i] | b.bytes_as_u32[i];
+		}
+
+		return r;
+	}
+}
+
+intersect_bits :: ( a: *BitVector, b: *BitVector ) -> ( r: *BitVector ) {
+	
+	// Implements the intersection of the two bit vectors.
+	// Result includes bits from both arguments at the same index that are set.
+	// If an argument is null, that is interpreted as an empty bit set/vector.
+
+	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing an intersection of the bits\n" );
+	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform an intersection.\n" );
+
+	if b == null {
+		return copy( a );
+	}
+	else 
+	if a == null {
+		return copy( b );
+	}
+	else {
+		r := allocate( a.num_bits );
+		count := a.num_bytes / size_of(u32);
+		for i: 0..count-1 {
+			r.bytes_as_u32[i] = a.bytes_as_u32[i] & b.bytes_as_u32[i];
+		}
+
+		return r;
+	}
+}
+
+difference_bits :: ( a: *BitVector, b: *BitVector ) -> ( r: *BitVector ) {
+	
+	// Implements the difference of the two bit vectors.
+	// Result includes all the bits with value 1 in A but are not in set B.
+	// If an argument is null, that is interpreted as an empty bit set/vector.
+	//  A:  	1 1 1 1
+	//  B:  	1 0 1 0
+	//
+	// ~B:  	0 1 0 1
+	// A & ~B   0 1 0 1 
+
+	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing an difference of the bits\n" );
+	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform a difference operation.\n" );
+
+	if b == null {
+		return copy( a );
+	}
+	else 
+	if a == null {
+		return copy( b );
+	}
+	else {
+		r := allocate( a.num_bits );
+		count := a.num_bytes / size_of(u32);
+		for i: 0..count-1 {
+			r.bytes_as_u32[i] = a.bytes_as_u32[i] & ~b.bytes_as_u32[i];
+		}
+
+		return r;
+	}
+}
+
 #scope_file
 #import "Basic";
 
@@ -278,3 +435,14 @@ not_bits :: ( bit_vector : *BitVector, low: int, high: int ) {
 
 msb_masks : [8] u8 : .[ 0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80 ];
 lsb_masks : [8] u8 : .[ 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF ];
+
+copy :: ( b: *BitVector ) -> ( c: *BitVector ) {
+	
+	// Copies the argument into a new BitVector instance.
+	assert( b != null,      "Can't copy a bit vector that is null.\n" );
+
+	c := allocate( b.num_bits );
+	memcpy( c.bytes, b.bytes, b.num_bytes );
+
+	return c;
+}

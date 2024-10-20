@@ -25,7 +25,49 @@ main :: () {
 	BitVector.clear_bits( x2, 9, 15 );
 	print( "Cleared bits in the high range, should have removed just one == %\n", BitVector.get_set_bit_count( x2 ) );
 
+	{
+		// equal bit arrays
+		a := BitVector.allocate( 8 );
+		b := BitVector.allocate( 8 );
 
+		BitVector.update_bit( a, 0, 1 );
+		BitVector.update_bit( a, 1, 1 );
+		BitVector.update_bit( a, 2, 1 );
+		BitVector.update_bit( a, 3, 1 );
+
+		BitVector.set_bits( b, 0, 5 );
+
+		print( "Are the bit vectors equal?\n" );
+		if BitVector.equal( a, b ) {
+			print( "Bit vectors are equal.\n" );
+		}
+		else { print( "Bit vectors are NOT equal.\n" ); }
+
+		print( "Is A a subset of B?\n" );
+		if BitVector.is_subset_of( a, b ) {
+			print( "A is a subset of B\n" );
+		}
+		else { print( "A is not a subset of B.\n" ); }
+
+		print( "Is B a subset of A?\n" );
+		if BitVector.is_subset_of( b, a ) {
+			print( "B is a subset of A.\n" );
+		}
+		else { print("B is a not a subset of A.\n"); }
+
+		print( "Is A a proper subset of B?\n" );
+		if BitVector.is_proper_subset_of( a, b ) {
+			print( "A is a proper subset of B.\n" );
+		}
+		else { print( "A is NOT a proper subset of B\n" ); }
+
+		print( "Is B a proper subset of A?\n" );
+		if BitVector.is_proper_subset_of( b, a ) {
+			print( "B is a proper subset of A.\n" );
+		}
+		else { print( "B is NOT a proper subset of A\n" ); }
+
+	}
 
 	
 	// Get total bytes
