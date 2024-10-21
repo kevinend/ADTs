@@ -1,116 +1,131 @@
-// File implements a Bit Vector
+// File implements a BitSet data structure.
 // The user specifies the number of bits contained within the BitSet and the library exposes methods to manipulate those bits.
-// Note: The Bit Vector represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
+// Note: The BitSet represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
 //       range for a Bit Vector containing n-bits is [0,n-1]. A 64-bit vector has valid indices [0,63].
-
-// TODO: Introduce a local MemoryAddress type that bytes: MemoryAddress bytes.as_u8, bytes_as_u32, etc..
-// TODO: Implement, union, intersection, difference and then be done with this module! good lord this is a long one
-// TODO: Then clean this up as well, MemoryAddress type and some renaming of things to make it easier to read
+//
+// 		 In David R Hanson's book C Interfaces and Implementations this data structure is called a BitVector (represented as the type Bit)
+//       which differs from the typical notion of a bit-vector sometimes referring to a C++ style-vector of bools that can dynamically grow.
+//       Since this implementation uses a fixed amount of memory once the user requests a new instance I've used the name BitSet instead.
 
 #scope_export
 
 BitSet :: struct {
-	num_bits:  	    int;
-	num_bytes:      int;
-	bytes:   		*u8;
-	bytes_as_u32:  *u32;
+	bit_count: int;
+	memory:    Memory_Alias;
+}
+
+// Memory of the BitSet can be aliased. Macros return the multiples of each alias type (*u8, *u16, etc..) for iterative looping over the memory.
+bits_to_number_of_u8s  :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u8);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u16s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u16);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u32s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u32);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u64s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u64);
+	return (bit_count + (bits-1)) / bits; 
 }
 
 
-allocate :: ( num_bits: int ) -> ( bit_vector: *BitSet ) {
+allocate :: ( bit_count: int ) -> ( set: *BitSet ) {
 	
-	// Allocates a new BitSet instance with 'num_bits' storage space.
-	// The new bit-space is set to zeroes.
-	//
-	// Allocation of space for bits must be a multiple of a u32 otherwise when you address blocks of bits using '.bytes_as_u32' you could read invalid memory!
-	// Example: num_bits  = 33,
-	//          boundary  = 32
-	//          multiples = 2 (64/32)
-	//          allocated_space = 2 * 32-bit == 64-bits 
+	// Allocates BitSet with enough memory to contain 'bit_count' number of bits. Memory is initialized to zero.
+	// The number of bytes allocated is a multiple of size_of(u64) which is the largest memory alias for the BitSet's bytes.
+	// 
+	// Example: bit_count  = 70
+	//          boundary   = 64
+	//          multiples  = 2 (134/64)
+	//			byte_count = 16 (2 * 8); where 8 is size_of(u64)
+	// Allocate 16 bytes which is greater than the 9 bytes (72-bits) required to account for the 70 required bits.
+	// However, since the memory can be addressed in u64 chunks for large set operations, we need to allocate all 16 bytes.
 
+	assert( bit_count > 0 );
 
-	assert( num_bits > 0 );
+	set: *BitSet = alloc( size_of(BitSet) );
+	assert( set != null );
 
-	bit_vector := cast(*BitSet)alloc( size_of(BitSet) );
-	assert( bit_vector != null );
-
-	bit_vector.num_bits = num_bits;
+	set.bit_count = bit_count;
 	
-	boundary  := 8 * size_of(u32);
-	multiples := (bit_vector.num_bits + (boundary-1)) / boundary;
+	boundary   := 8 * size_of(u64);
+	multiples  := (set.bit_count + (boundary-1)) / boundary;
+	byte_count := multiples * size_of(u64);
 
-	bit_vector.num_bytes = multiples * size_of(u32);
+	set.memory.as_u8 = alloc( byte_count );
+	assert( set.memory.as_u8 != null );
+	memset( set.memory.as_u8, 0, byte_count );
 
-	bit_vector.bytes_as_u32 = alloc( bit_vector.num_bytes );
-	assert( bit_vector.bytes_as_u32 != null );
-	memset( bit_vector.bytes_as_u32, 0, multiples * size_of(u32) );
-
-	bit_vector.bytes = cast(*u8)bit_vector.bytes_as_u32;
-
-	return bit_vector;	
+	return set;	
 }
 
-deallocate :: ( bit_vector: *BitSet ) {
+deallocate :: ( set: *BitSet ) {
 
-	// Free the memory associated with the bit_vector, then free the bit_vector instance.
+	// Free the memory associated with the set, then free the set instance.
 	
-	assert( bit_vector != null );
-	assert( bit_vector.bytes_as_u32 != null );
+	assert( set != null );
+	assert( set.memory.as_u8 != null );
 
-	free( bit_vector.bytes_as_u32 ); // implicitly frees the memory associated with bit_vector.bytes
-	free( bit_vector );
+	free( set.memory.as_u8 );
+	free( set );
 
 	return;
 }
 
-get_bit_count :: ( bit_vector: *BitSet ) -> ( num_bits: int ) {
+get_bit_count :: ( set: *BitSet ) -> ( bit_count: int ) {
 	
 	// Return the number of bits managed by the BitSet instance.
-	assert( bit_vector != null );
-	return bit_vector.num_bits;
+	assert( set != null );
+	return set.bit_count;
 }
 
-get_bit :: ( bit_vector: *BitSet, n: int ) -> ( bit: int ) {
+get_bit :: ( set: *BitSet, n: int ) -> ( bit: int ) {
 
 	// Returns the value of the n-th bit in the BitSet instance.
 	
-	assert( bit_vector != null );
-	assert( n >= 0, "Can't find a bit whose index is less than 0." );
-	assert( n < bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
+	assert( set != null );
+	assert( n >= 0, 		   "Can't find a bit whose index is less than 0." );
+	assert( n < set.bit_count, "Bit index exceeds the total number of bits in the bit set." );
 
-	byte := (bit_vector.bytes + n/8).*;
-	return (byte >> n%8) & 1;
+	byte := << (set.memory.as_u8 + (n/8));
+	return (byte >> (n%8)) & 1;
 }
 
-update_bit :: ( bit_vector: *BitSet, n: int, bit_value: int ) -> ( previous_bit_value: int ) {
+update_bit :: ( set: *BitSet, n: int, bit_value: int ) -> ( previous_bit_value: int ) {
 
-	// Updates the bit_value supplied by the user into the n-th bit in the bit-vector.
+	// Updates the bit_value supplied by the user into the n-th bit in the bit set.
 	// Returns the previous bit value of the n-th bit.
 
-	assert( bit_vector != null );
-	assert( n >= 0, "Can't find a bit whose index is less than 0." );
-	assert( n <  bit_vector.num_bits, "Bit index exceeds the total number of bits in the bit vector." );
+	assert( set != null );
+	assert( n >= 0, 						  "Can't find a bit whose index is less than 0." );
+	assert( n <  set.bit_count, 			  "Bit index exceeds the total number of bits in the bit vector." );
 	assert( bit_value == 1 || bit_value == 0, "Supplied bit value must be a one (1) or a zero (0)." );
 
-	previous_bit_value := get_bit( bit_vector, n );
+	previous_bit_value := get_bit( set, n );
 	if ( bit_value == 1 ) {
 		// Bit at the index is either 0 or 1 so we can OR with a 1 and always get the '1' we want in that bit
-		bit_vector.bytes[n/8] |= cast(u8) (1 << (n%8));
+		set.memory.as_u8[n/8] |= cast(u8) (1 << (n%8));
 	}
 	else {
 		// Bit at the index is either a 0 or 1 so we can AND with a 0 and always get the '0' we want in that bit.
 		// To avoid clearing out the other bits, we set 1 in the n-th bit place then take the complement and AND that together with the target byte which will set the n-th bit to zero.
+		// Alias memory as an s8 type since the complement of the shifted-1 will be a negative value in 2's complement notation.
 	
-		// Wont complie: bit_vector.bytes[n/8] &= cast(s8) ~(1 << (n%8));
-		// complement will generate a signed u8 that can't be put in the u8 location; aliasing the byte and applying the mask.
-		byte   := cast(*s8)*bit_vector.bytes[n/8];
-		byte.* &= cast( s8)~(1 << (n%8));
+		byte   := *set.memory.as_s8[n/8];
+		byte.* &= cast(s8)~(1 << (n%8));
 	}
 
 	return previous_bit_value;
 }
 
-get_set_bit_count :: ( bit_vector: *BitSet ) -> ( num_set_bits: int ) {
+get_set_bit_count :: ( set: *BitSet ) -> ( num_set_bits: int ) {
 
 	// Returns the count of set bits (bits with a value of 1) in the BitSet instance.
 	// 
@@ -136,39 +151,39 @@ get_set_bit_count :: ( bit_vector: *BitSet ) -> ( num_set_bits: int ) {
 		,4   // 15
 	];
 
-	assert( bit_vector != null );
+	assert( set != null );
 
-	set_bit_count := 0;
-	for i: 0..bit_vector.num_bytes-1 {
-
-		byte := (bit_vector.bytes + i).*;	
+	count := 0;
+	n     := bits_to_number_of_u8s( set.bit_count );
+	for i: 0..n-1 {
+		byte := << (set.memory.as_u8 + i);
 
 		hi_nibble := nibbles_to_num_set_bits[byte & 0x0F];
 		lo_nibble := nibbles_to_num_set_bits[byte >> 4  ];
 		
-		set_bit_count += hi_nibble + lo_nibble;
+		count += hi_nibble + lo_nibble;
 	}
 
-	return set_bit_count;
+	return count;
 }
 
-set_bits :: ( bit_vector: *BitSet, low: int, high: int ) {
+set_bits :: ( set: *BitSet, low: int, high: int ) {
 
 	// Set the range of bits between low and high to a value of 1.
-	assert( bit_vector != null );
-	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
-	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
-	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
+	assert( set != null );
+	assert( low   >= 0 			  	,"Invalid bit range. Low bit specified in the range must be greater than or equal to zero.\n" );
+	assert( high  <  set.bit_count 	,"Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit set.\n" );
+	assert( high  > low             ,"Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
 	if low/8 < high/8 {
 		// Bit range spans multiple bytes. Set the bits in the low-byte, those between the low and high-byte, then the high-byte.
-		bit_vector.bytes[low/8] |= msb_masks[low%8];
+		set.memory.as_u8[low/8] |= msb_masks[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
-			bit_vector.bytes[i] = 0xFF;
+			set.memory.as_u8[i] = 0xFF;
 		}
 
-		bit_vector.bytes[high/8] |= lsb_masks[high%8];	
+		set.memory.as_u8[high/8] |= lsb_masks[high%8];	
 	}
 	else {
 		// Bit range specified falls within a single byte.
@@ -188,80 +203,81 @@ set_bits :: ( bit_vector: *BitSet, low: int, high: int ) {
 		// So the AND of the mask's returns a new mask that returns the range we are interested in [9,13] in this case.
 
 		mask := msb_masks[low%8] & lsb_masks[high%8];
-		bit_vector.bytes[low/8] |= mask;
+		set.memory.as_u8[low/8] |= mask;
 	}
 	
 	return;
 }
 
-clear_bits :: ( bit_vector: *BitSet, low: int, high: int ) {
+clear_bits :: ( set: *BitSet, low: int, high: int ) {
 
 	// Set/Clear the range of bits between low and high to a value of 0 (zero).
 	// Implementation is based off of 'set_bits' but uses the complements of the masks and ANDs to clear bits in the range.
 
-	assert( bit_vector != null );
-	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
-	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
-	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
+	assert( set != null );
+	assert( low   >= 0 				,"Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
+	assert( high  <  set.bit_count  ,"Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit set\n" );
+	assert( high  > low             ,"Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
 	if low/8 < high/8 {
 		// Bit range spans multiple bytes. Clear the bits in the low-byte, those between the low and high-byte, then the high-byte.
-		bit_vector.bytes[low/8] &= ~msb_masks[low%8];
+		set.memory.as_u8[low/8] &= ~msb_masks[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
-			bit_vector.bytes[i] = 0;
+			set.memory.as_u8[i] = 0;
 		}
 
-		bit_vector.bytes[high/8] &= ~lsb_masks[high%8];
+		set.memory.as_u8[high/8] &= ~lsb_masks[high%8];
 	}
 	else {
 		// Clear the bits that fall within a single byte. See 'set_bits' for rationale behind bit mask.
 		mask := msb_masks[low%8] & lsb_masks[high%8];
-		bit_vector.bytes[low/8] &= ~mask;
+		set.memory.as_u8[low/8]  &= ~mask;
 	}
 
 	return;
 }
 
-not_bits :: ( bit_vector : *BitSet, low: int, high: int ) {
+not_bits :: ( set : *BitSet, low: int, high: int ) {
 
 	// Flip (logical not) the bits between low and high.
 	// Implementation is based off of 'set_bits' but uses the XOR logical operator to flip the bits in the range.
 
-	assert( bit_vector != null );
+	assert( set != null );
 	assert( low   >= 0, 				  "Invalid bit range. Low bit specified in the range must be greater than or equal to zero" );
-	assert( high  <  bit_vector.num_bits, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
+	assert( high  <  set.bit_count, "Invalid bit range. High bit specified in the range must be at most n-1 number of bits in the bit-vector\n" );
 	assert( high  > low,                  "Invalid bit range. High bit specified must be greater thn the low bit.\n"  );
 
 	if low/8 < high/8 {
 		// Bit range spans multiple bytes. Flip the bits in the low-byte, those between the low and high-byte, then the high-byte.
-		bit_vector.bytes[low/8] ^= msb_mask[low%8];
+		set.memory.as_u8[low/8] ^= msb_mask[low%8];
 
 		for i: (low/8)+1..(high/8)-1 {
-			bit_vector.bytes[i] ^= 0xFF;
+			set.memory.as_u8[i] ^= 0xFF;
 		}
 
-		bit_vector.bytes[high/8] ^= lsb_mask[high%8];
+		set.memory.as_u8[high/8] ^= lsb_mask[high%8];
 	}
 	else {
 		// Flip the bits that fall within a single byte. See 'set_bits' for rationale behind bit mask.
 		mask := msb_mask[low%8] & lsb_mask[high%8];
-		bit_vector.bytes[low/8] ^= mask;
+		set.memory.as_u8[low/8] ^= mask;
 	}
 
 	return;
 }
 
-equal :: ( a: *BitSet, b: *BitSet ) -> ( bool )  {
+equal :: ( A: *BitSet, B: *BitSet ) -> ( bool )  {
 
-	// Compares the bit vectors and returns true if the bit vectors are equal and false otherwise.
-	assert( a != null && b != null );
-	assert( a.num_bits == b.num_bits, "Can't compare two bit vectors that do not contain the same number of bits/bit length\n." );
+	// Returns true if A is equal (bit for bit) to B; false otherwise.
+	assert( A != null && B != null );
+	assert( A.bit_count == B.bit_count, "Can't compare two bit sets that do not contain the same number of bits/bit length\n." );
 
-	size := a.num_bytes / size_of(u32);
+	n := bits_to_number_of_u64s( A.bit_count );
 
-	for i: 0..size-1 {
-		if a.bytes_as_u32[i] != b.bytes_as_u32[i] {
+	print( "A.bit_count == %\n", A.bit_count );
+	for i: 0..n-1 {
+		if A.memory.as_u64[i] != B.memory.as_u64[i] {
 			return false;
 		}
 	}
@@ -269,19 +285,20 @@ equal :: ( a: *BitSet, b: *BitSet ) -> ( bool )  {
 	return true;
 }
 
-is_subset_of :: ( a: *BitSet, b: *BitSet ) -> ( bool ) {
+is_subset_of :: ( A: *BitSet, B: *BitSet ) -> ( bool ) {
 
-	// Compares the bit vectors and returns whether a is a subset of b.
-	// A subset means that all set (1) bits in 'a' are correspondingly set in bit vector 'b'.	
-	assert( a != null && b != null );
-	assert( a.num_bits == b.num_bits, "Can't determine a subset of two bit vectors that do not contain the same number of bits/bit length.\n" );
+	// Returns true if A is a subset of B; false otherwise. 
+	// A subset means that all set (1) bits in set A are correspondingly the value 1 in set B.	
+	assert( A != null && B != null );
+	assert( A.bit_count == B.bit_count, "Can't determine a subset of two bit sets that do not contain the same number of bits/bit length.\n" );
 
-	count := a.num_bytes / size_of(u32);
-	for i: 0..count-1 {
-		A := a.bytes_as_u32[i];
-		B := b.bytes_as_u32[i];
-		if A & B != A {
-			// bits in 'a' not set in bit vector 'b' therefore not a subset
+	n := bits_to_number_of_u64s( A.bit_count );
+	for i: 0..n-1 {
+		a := A.memory.as_u64[i];
+		b := B.memory.as_u64[i];
+
+		if a & b != a {
+			// current bits in A's bytes not set in bit set B. Therefore not a subset.
 			return false;
 		}
 	}
@@ -289,91 +306,81 @@ is_subset_of :: ( a: *BitSet, b: *BitSet ) -> ( bool ) {
 	return true;
 } 
 
-is_proper_subset_of ::  ( a: *BitSet, b: *BitSet ) -> ( bool ) {
+is_proper_subset_of :: ( A: *BitSet, B: *BitSet ) -> ( bool ) {
 
-	// Compares the bit vectors and returns whether 'a is a proper subset of 'b'.
+	// Returns true if A is a proper subset of B; false otherwise. 
 	// A proper subset means that all set (1) bits in 'a' are correspondingly set in bit vector 'b' but 'a' and 'b' are *not* equal.
 
-	assert( a != null && b != null );
-	assert( a.num_bits == b.num_bits, "Can't determine a proper subset when the bit vectors do not contain the same number of bits/bit length.\n" );
+	assert( A != null && B != null );
+	assert( A.bit_count == B.bit_count, "Can't determine a proper subset when the bit sets do not contain the same number of bits/bit length.\n" );
 
-	count := a.num_bytes / size_of(u32);
-	
 	matches := 0;
-	for i: 0..count-1 {
-		A := a.bytes_as_u32[i];
-		B := b.bytes_as_u32[i];
+	n := bits_to_number_of_u64s( A.bit_count );
+	for i: 0..n-1 {
+		a := A.memory.as_u64[i];
+		b := B.memory.as_u64[i];
 
-		if A & B != A {
+		if a & b != a {
+			// current bits in A's bytes not set in bit set B. Therefore not a subset.
 			return false;	
 		}
 		else
-		if A == B {
+		if a == b {
 			matches += 1;
 		}
 	}
 
-	return matches != count;
+	// Returned false above if not a subset, so check if all the bytes in each bit set matched, if they don't then we have a proper subset.
+	return matches != n;
 }
 
-union_bits :: ( a: *BitSet, b: *BitSet ) -> ( r: *BitSet ) {
+union_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 
-	// Implements the union of the two bit vectors.
-	// Result includes all set bits from both arguments.
-	// If an argument is null, that is interpreted as an empty bit set/vector.
+	// Implements the union of the two bit sets. Result includes all set bits from both arguments.
+	// If an argument is null, that is interpreted as an empty bit set.
 
-	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing a union of the bits\n" );
-	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform a union.\n" );
+	assert( A != null && B != null   	,"Both bit sets cannot be null/empty when performing an union of the bits\n" );
+	assert( A.bit_count == B.bit_count  ,"Bit sets must be the same length to perform an union.\n" );
 
-	if b == null {
-		return copy( a );
-	}
-	else 
-	if a == null {
-		return copy( b );
-	}
+	if A == null { return copy( B ); }
+	else
+	if B == null { return copy( A ); }
 	else {
-		r := allocate( a.num_bits );
-		count := a.num_bytes / size_of(u32);
-		for i: 0..count-1 {
-			r.bytes_as_u32[i] = a.bytes_as_u32[i] | b.bytes_as_u32[i];
+		C := allocate( A.bit_count );
+		n := bits_to_number_of_u64s( C.bit_count );
+		for i: 0..n-1 {
+			C.memory.as_u64[i] = A.memory.as_u64[i] | B.memory.as_u64[i];
 		}
 
-		return r;
+		return C;
 	}
 }
 
-intersect_bits :: ( a: *BitSet, b: *BitSet ) -> ( r: *BitSet ) {
+intersect_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 	
-	// Implements the intersection of the two bit vectors.
-	// Result includes bits from both arguments at the same index that are set.
+	// Implements the intersection of the two bit sets. Result includes only those bits set to a value of one in the same bit-index in both sets.
 	// If an argument is null, that is interpreted as an empty bit set/vector.
 
-	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing an intersection of the bits\n" );
-	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform an intersection.\n" );
+	assert( A != null && B != null   	,"Both bit sets cannot be null/empty when performing an intersection of the bits\n" );
+	assert( A.bit_count == B.bit_count  ,"Bit sets must be the same length to perform an intersection.\n" );
 
-	if b == null {
-		return copy( a );
-	}
-	else 
-	if a == null {
-		return copy( b );
-	}
+	if A == null { return copy( B ); }
+	else
+	if B == null { return copy( A ); }
 	else {
-		r := allocate( a.num_bits );
-		count := a.num_bytes / size_of(u32);
-		for i: 0..count-1 {
-			r.bytes_as_u32[i] = a.bytes_as_u32[i] & b.bytes_as_u32[i];
+		C := allocate( A.bit_count );
+		n := bits_to_number_of_u64s( C.bit_count );
+		for i: 0..n-1 {
+			C.memory.as_u64[i] = A.memory.as_u64[i] & B.memory.as_u64[i];
 		}
 
-		return r;
+		return C;
 	}
 }
 
 difference_bits :: ( a: *BitSet, b: *BitSet ) -> ( r: *BitSet ) {
 	
-	// Implements the difference of the two bit vectors.
-	// Result includes all the bits with value 1 in A but are not in set B.
+	// Implements the difference of the two bit sets. Result includes all the bits with value 1 in A but are not in set B.
 	// If an argument is null, that is interpreted as an empty bit set/vector.
 	//  A:  	1 1 1 1
 	//  B:  	1 0 1 0
@@ -381,36 +388,47 @@ difference_bits :: ( a: *BitSet, b: *BitSet ) -> ( r: *BitSet ) {
 	// ~B:  	0 1 0 1
 	// A & ~B   0 1 0 1 
 
-	assert( a != null && b != null,   "Both bit vectors cannot be null/empty when performing an difference of the bits\n" );
-	assert( a.num_bits == b.num_bits, "Bit vectors must be the same length to perform a difference operation.\n" );
+	assert( A != null && B != null   	,"Both bit sets cannot be null/empty when performing a difference of the bits\n" );
+	assert( A.bit_count == B.bit_count  ,"Bit sets must be the same length to perform a difference.\n" );
 
-	if b == null {
-		return copy( a );
-	}
-	else 
-	if a == null {
-		return copy( b );
-	}
+	if A == null { return copy( B ); }
+	else
+	if B == null { return copy( A ); }
 	else {
-		r := allocate( a.num_bits );
-		count := a.num_bytes / size_of(u32);
-		for i: 0..count-1 {
-			r.bytes_as_u32[i] = a.bytes_as_u32[i] & ~b.bytes_as_u32[i];
+		C := allocate( A.bit_count );
+		n := bits_to_number_of_u64s( C.bit_count );
+		for i: 0..n-1 {
+			C.memory.as_u64[i] = A.memory.as_u64[i] & ~B.memory.as_u64[i];
 		}
 
-		return r;
+		return C;
 	}
 }
 
 #scope_file
 #import "Basic";
 
+Memory_Alias :: union {
+	// TODO: move this into the a Memory module
+	as_u8:  *u8;
+	as_u16: *u16;
+	as_u32: *u32;
+	as_u64: *u64;
+
+	as_s8:  *s8;
+	as_s16: *s16;
+	as_s32: *s32;
+	as_s64: *s64;
+
+	as_int: *int;
+}
+
 // When the bit range spans multiple bytes you need to set the most-significant-bits of the low-byte and the least-significant bits of the high-byte.
 // Use mask tables to extract or set specific bits.
 //
 //  Example: 
 //		64-bit BitSet; Valid bit range [0,63]
-//		set_bit( bit_vector = bv, low = 3, high = 58 )
+//		set_bit( set = bv, low = 3, high = 58 )
 //
 //	Most-Significant bits of the low-order byte:
 //  To find the low-byte take 'low'/ 8. Bits that need set within that byte are those GREATER THAN 'low' % 8.
@@ -441,7 +459,7 @@ copy :: ( b: *BitSet ) -> ( c: *BitSet ) {
 	// Copies the argument into a new BitSet instance.
 	assert( b != null,      "Can't copy a bit vector that is null.\n" );
 
-	c := allocate( b.num_bits );
+	c := allocate( b.bit_count );
 	memcpy( c.bytes, b.bytes, b.num_bytes );
 
 	return c;

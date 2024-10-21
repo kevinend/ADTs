@@ -1,5 +1,7 @@
 #scope_export 
 
+// TODO: Clean up this example file to test all exported procedures. 
+
 main :: () {
 
 	x1 := BitSet.allocate( 8 );
@@ -68,12 +70,6 @@ main :: () {
 		else { print( "B is NOT a proper subset of A\n" ); }
 
 	}
-
-	
-	// Get total bytes
-
-	print( "Number of bytes == %, %\n", x1.num_bytes, x2.num_bytes );
-
 
 	sc1 := BitSet.get_set_bit_count( x1 );
 	sc2 := BitSet.get_set_bit_count( x2 );
