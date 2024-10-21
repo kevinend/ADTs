@@ -6,6 +6,10 @@
 // 		 In David R Hanson's book C Interfaces and Implementations this data structure is called a BitVector (represented as the type Bit)
 //       which differs from the typical notion of a bit-vector sometimes referring to a C++ style-vector of bools that can dynamically grow.
 //       Since this implementation uses a fixed amount of memory once the user requests a new instance I've used the name BitSet instead.
+//
+// Also the implementation *could* support aliasing based on a type parameter T so as to reduce the amount of excess memory address space
+// that can sometimes go unused (ex. request 8 bit set and memory allocated is 8 BYTES, since all procedures alias memory using a *u64).
+// Adding this 'feature' would complicate the types and implementation which is already heavy in masking and logical operations so leaving it out for now. 
 
 #scope_export
 
@@ -13,28 +17,6 @@ BitSet :: struct {
 	bit_count: int;
 	memory:    Memory_Alias;
 }
-
-// Memory of the BitSet can be aliased. Macros return the multiples of each alias type (*u8, *u16, etc..) for iterative looping over the memory.
-bits_to_number_of_u8s  :: ( bit_count: int ) -> int #expand {
-	bits := 8 * size_of(u8);
-	return (bit_count + (bits-1)) / bits; 
-}
-
-bits_to_number_of_u16s :: ( bit_count: int ) -> int #expand {
-	bits := 8 * size_of(u16);
-	return (bit_count + (bits-1)) / bits; 
-}
-
-bits_to_number_of_u32s :: ( bit_count: int ) -> int #expand {
-	bits := 8 * size_of(u32);
-	return (bit_count + (bits-1)) / bits; 
-}
-
-bits_to_number_of_u64s :: ( bit_count: int ) -> int #expand {
-	bits := 8 * size_of(u64);
-	return (bit_count + (bits-1)) / bits; 
-}
-
 
 allocate :: ( bit_count: int ) -> ( set: *BitSet ) {
 	
@@ -275,7 +257,6 @@ equal :: ( A: *BitSet, B: *BitSet ) -> ( bool )  {
 
 	n := bits_to_number_of_u64s( A.bit_count );
 
-	print( "A.bit_count == %\n", A.bit_count );
 	for i: 0..n-1 {
 		if A.memory.as_u64[i] != B.memory.as_u64[i] {
 			return false;
@@ -334,7 +315,7 @@ is_proper_subset_of :: ( A: *BitSet, B: *BitSet ) -> ( bool ) {
 	return matches != n;
 }
 
-union_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
+set_union :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 
 	// Implements the union of the two bit sets. Result includes all set bits from both arguments.
 	// If an argument is null, that is interpreted as an empty bit set.
@@ -356,7 +337,7 @@ union_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 	}
 }
 
-intersect_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
+set_intersection :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 	
 	// Implements the intersection of the two bit sets. Result includes only those bits set to a value of one in the same bit-index in both sets.
 	// If an argument is null, that is interpreted as an empty bit set/vector.
@@ -378,7 +359,7 @@ intersect_bits :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 	}
 }
 
-difference_bits :: ( a: *BitSet, b: *BitSet ) -> ( r: *BitSet ) {
+set_difference :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
 	
 	// Implements the difference of the two bit sets. Result includes all the bits with value 1 in A but are not in set B.
 	// If an argument is null, that is interpreted as an empty bit set/vector.
@@ -423,6 +404,27 @@ Memory_Alias :: union {
 	as_int: *int;
 }
 
+// Memory of the BitSet can be aliased. Macros return the multiples of each alias type (*u8, *u16, etc..) for iterative looping over the memory.
+bits_to_number_of_u8s  :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u8);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u16s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u16);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u32s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u32);
+	return (bit_count + (bits-1)) / bits; 
+}
+
+bits_to_number_of_u64s :: ( bit_count: int ) -> int #expand {
+	bits := 8 * size_of(u64);
+	return (bit_count + (bits-1)) / bits; 
+}
+
 // When the bit range spans multiple bytes you need to set the most-significant-bits of the low-byte and the least-significant bits of the high-byte.
 // Use mask tables to extract or set specific bits.
 //
@@ -454,13 +456,19 @@ Memory_Alias :: union {
 msb_masks : [8] u8 : .[ 0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0, 0xC0, 0x80 ];
 lsb_masks : [8] u8 : .[ 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF ];
 
-copy :: ( b: *BitSet ) -> ( c: *BitSet ) {
+copy :: ( B: *BitSet ) -> ( C: *BitSet ) {
 	
 	// Copies the argument into a new BitSet instance.
-	assert( b != null,      "Can't copy a bit vector that is null.\n" );
+	assert( B != null, "Can't copy a bit set that is null.\n" );
 
-	c := allocate( b.bit_count );
-	memcpy( c.bytes, b.bytes, b.num_bytes );
+	bits := get_bit_count( B );
 
-	return c;
+	C: *BitSet = allocate( bits );
+
+	multiples  := bits_to_number_of_u64s( bits );
+	byte_count := multiples * size_of(u64);
+
+	memcpy( C.memory.as_u8, B.memory.as_u8, byte_count );
+
+	return C;
 }

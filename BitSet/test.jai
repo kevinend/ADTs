@@ -4,31 +4,92 @@
 
 main :: () {
 
-	x1 := BitSet.allocate( 8 );
-	x2 := BitSet.allocate( 16 );
+	
+	{
+		// Allocate, get bit count, get set bit count, deallocate
+		a := BitSet.allocate( 8 );
+		b := BitSet.allocate( 16 );
+		c := BitSet.allocate( 32 );
+		d := BitSet.allocate( 64 );
 
-	c1 := BitSet.get_bit_count( x1 );
-	c2 := BitSet.get_bit_count( x2 );
-	print( "c1 == %, c2 == %\n", c1, c2 );
+		// Check bit counts of each bit set
+		assert( BitSet.get_bit_count( a ) == 8 );
+		assert( BitSet.get_bit_count( b ) == 16 );
+		assert( BitSet.get_bit_count( c ) == 32 );
+		assert( BitSet.get_bit_count( d ) == 64 );
 
-	BitSet.update_bit( x1, 3,  1 );
-	BitSet.update_bit( x2, 4,  1 );
-	BitSet.update_bit( x2, 15, 1 );
-
-	BitSet.set_bits( x1, 0, 7 );
-	print( "Set all bits, what does it say is the count == %\n", BitSet.get_set_bit_count( x1 ) );
-
-	BitSet.set_bits( x2, 0, 3 );
-	print( "Set the first four bits in x2, what does it say the bitcount is %\n", BitSet.get_set_bit_count( x2 ) );
-
-	BitSet.clear_bits( x1, 0, 7 );
-	print( "Cleared all bits, what does it say is the count == %\n", BitSet.get_set_bit_count( x1 ) );
-
-	BitSet.clear_bits( x2, 9, 15 );
-	print( "Cleared bits in the high range, should have removed just one == %\n", BitSet.get_set_bit_count( x2 ) );
+		BitSet.deallocate( a );
+		BitSet.deallocate( b );
+		BitSet.deallocate( c );
+		BitSet.deallocate( d );
+	}
 
 	{
-		// equal bit arrays
+		// Allocate bit set
+		// Check that the bits are initialized to zero.
+		// Update a couple of bits
+		// Check the return of the previous value from update.
+		// Check the number of set bits in the set.
+
+		a := BitSet.allocate( 16 );
+		assert( BitSet.get_bit( a, 0  ) == 0 );
+		assert( BitSet.get_bit( a, 15 ) == 0 );
+
+		assert( BitSet.get_set_bit_count( a ) == 0 );
+
+		previous := BitSet.update_bit( a, 1, 1 );
+		assert( previous == 0 );
+
+		BitSet.update_bit( a, 2, 1 );
+		BitSet.update_bit( a, 3, 1 );
+
+		assert( BitSet.get_set_bit_count( a ) == 3 );
+
+		previous = BitSet.update_bit( a, 2, 0 );
+		assert( previous == 1 );
+
+		assert( BitSet.get_set_bit_count( a ) == 2 );
+
+		BitSet.deallocate( a );
+	}
+
+	{
+		// Allocate a bit set
+		// Update a range of bits using 'set_bits'
+		// Check set bit count
+		// Get bit's from the bottom and top and middle of the range
+		// Clear the bits
+		// Check the set bit count
+		// Get those same bits and make sure they are cleared.
+
+		a := BitSet.allocate( 16 );
+		
+		BitSet.set_bits( a, 3, 12 ); // 4th to 13th bit	
+		assert( BitSet.get_set_bit_count( a ) == 10 ); 
+
+		assert( BitSet.get_bit( a, 2 )  == 0 ); // bit before the set range
+		assert( BitSet.get_bit( a, 3 )  == 1 );
+		assert( BitSet.get_bit( a, 3 )  == 1 );
+		assert( BitSet.get_bit( a, 12 ) == 1 );
+		assert( BitSet.get_bit( a, 13 ) == 0 ); // bit after the set range
+
+		BitSet.clear_bits( a, 3, 12 );
+		assert( BitSet.get_set_bit_count( a ) == 0 );
+
+		assert( BitSet.get_bit( a, 2 )  == 0 ); // bit before the set range
+		assert( BitSet.get_bit( a, 3 )  == 0 );
+		assert( BitSet.get_bit( a, 3 )  == 0 );
+		assert( BitSet.get_bit( a, 12 ) == 0 );
+		assert( BitSet.get_bit( a, 13 ) == 0 ); // bit after the set range
+
+		BitSet.deallocate( a );		
+	}
+
+	{
+		// Allocate two bit sets
+		// Test for equality 
+		// Test subset operations
+
 		a := BitSet.allocate( 8 );
 		b := BitSet.allocate( 8 );
 
@@ -39,50 +100,45 @@ main :: () {
 
 		BitSet.set_bits( b, 0, 5 );
 
-		print( "Are the bit vectors equal?\n" );
-		if BitSet.equal( a, b ) {
-			print( "Bit vectors are equal.\n" );
-		}
-		else { print( "Bit vectors are NOT equal.\n" ); }
+		assert( BitSet.equal( a, b )        	   == false );
+		assert( BitSet.is_subset_of( a, b ) 	   == true  );
+		assert( BitSet.is_subset_of( b, a ) 	   == false );
+		assert( BitSet.is_proper_subset_of( a, b ) == true  );
+		assert( BitSet.is_proper_subset_of( b, a ) == false );
 
-		print( "Is A a subset of B?\n" );
-		if BitSet.is_subset_of( a, b ) {
-			print( "A is a subset of B\n" );
-		}
-		else { print( "A is not a subset of B.\n" ); }
-
-		print( "Is B a subset of A?\n" );
-		if BitSet.is_subset_of( b, a ) {
-			print( "B is a subset of A.\n" );
-		}
-		else { print("B is a not a subset of A.\n"); }
-
-		print( "Is A a proper subset of B?\n" );
-		if BitSet.is_proper_subset_of( a, b ) {
-			print( "A is a proper subset of B.\n" );
-		}
-		else { print( "A is NOT a proper subset of B\n" ); }
-
-		print( "Is B a proper subset of A?\n" );
-		if BitSet.is_proper_subset_of( b, a ) {
-			print( "B is a proper subset of A.\n" );
-		}
-		else { print( "B is NOT a proper subset of A\n" ); }
-
+		BitSet.deallocate( a );
+		BitSet.deallocate( b );
 	}
 
-	sc1 := BitSet.get_set_bit_count( x1 );
-	sc2 := BitSet.get_set_bit_count( x2 );
+	{
+		// Allocate two bit sets
+		// Take union, intersection and difference 
 
-	print( "Set bit count == %, %\n", sc1, sc2 );
+		a := BitSet.allocate( 32 );
+		b := BitSet.allocate( 32 );
 
-	b1 := BitSet.get_bit( x1, 1 );
-	b2 := BitSet.get_bit( x2, 1 );
+		BitSet.set_bits( a, 17, 23 ); // 7 bits
+		BitSet.set_bits( b, 19, 25 ); // 7 bits, two past set a
+	
+		// Check min and max range, since all bits in the range should be set
+		u := BitSet.set_union( a, b );
+		assert( BitSet.get_set_bit_count( u ) == 9 );
+		assert( BitSet.get_bit( u, 17 ) == 1 );
+		assert( BitSet.get_bit( u, 25 ) == 1 );
 
-	print( "Get bit == %, %\n", b1, b2 );
+		i := BitSet.set_intersection( a, b );
+		assert( BitSet.get_set_bit_count( i ) == 5 );
+ 		assert( BitSet.get_bit( i, 19 ) == 1 );
+		assert( BitSet.get_bit( i, 23 ) == 1 );
 
-	BitSet.deallocate( x1 );
-	BitSet.deallocate( x2 );
+		d := BitSet.set_difference( a, b );
+		assert( BitSet.get_set_bit_count( d ) == 2 ); // 17 and 18
+		assert( BitSet.get_bit( d, 17 ) == 1 );
+		assert( BitSet.get_bit( d, 18 ) == 1 );
+
+		BitSet.deallocate( a );
+		BitSet.deallocate( b );
+	}
 
 	return;	
 }
