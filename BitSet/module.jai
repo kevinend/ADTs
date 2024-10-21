@@ -1,15 +1,18 @@
-// File implements a BitSet data structure.
-// The user specifies the number of bits contained within the BitSet and the library exposes methods to manipulate those bits.
-// Note: The BitSet represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
-//       range for a Bit Vector containing n-bits is [0,n-1]. A 64-bit vector has valid indices [0,63].
-//
-// 		 In David R Hanson's book C Interfaces and Implementations this data structure is called a BitVector (represented as the type Bit)
-//       which differs from the typical notion of a bit-vector sometimes referring to a C++ style-vector of bools that can dynamically grow.
-//       Since this implementation uses a fixed amount of memory once the user requests a new instance I've used the name BitSet instead.
-//
-// Also the implementation *could* support aliasing based on a type parameter T so as to reduce the amount of excess memory address space
-// that can sometimes go unused (ex. request 8 bit set and memory allocated is 8 BYTES, since all procedures alias memory using a *u64).
-// Adding this 'feature' would complicate the types and implementation which is already heavy in masking and logical operations so leaving it out for now. 
+/*
+    File implements a BitSet data structure.
+    The user specifies the number of bits contained within the BitSet and the library exposes methods to manipulate those bits.
+
+    The BitSet represents the user-supplied number of bits which are accessed/manipulated based on zero-indexing. Therefore the valid
+    range for a Bit Vector containing n-bits is [0,n-1]. A 64-bit vector has valid indices [0,63].
+
+    In David R Hanson's book C Interfaces and Implementations this data structure is called a BitVector (represented as the type Bit)
+    which differs from the typical notion of a bit-vector sometimes referring to a C++ style-vector of bools that can dynamically grow.
+    Since this implementation uses a fixed amount of memory once the user requests a new instance I've used the name BitSet instead.
+
+    Also the implementation *could* support aliasing based on a type parameter T so as to reduce the amount of excess memory address space
+    that can sometimes go unused (ex. request 8 bit set and memory allocated is 8 BYTES, since all procedures alias memory using a *u64).
+    Adding this 'feature' would complicate the types and implementation which is already heavy in masking and logical operations so leaving it out for now. 
+*/
 
 #scope_export
 
