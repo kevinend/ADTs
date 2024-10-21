@@ -1,57 +1,85 @@
 #scope_export 
 
-
-atom_hash :: ( s: string ) -> ( u64 ) {
-	
-	// Client function used by the atom module to hash our input strings.
-	h: u64 = 0;
-	for i: 0..s.count-1 {
-		h += cast(u8) s[i];
-	}
-
-	return h;
-}
-
 main :: () {
 
-	// Set the hash procedure for our Atoms
-	Atom.set_hash_procedure( atom_hash );
+    // Remember that all atoms share a single table!!!
 
-	// Allocate two new atoms to add to the atom table	
-	a1 := Atom.new( "John" );
-	a2 := Atom.new( "Jacob"  );
-	a3 := Atom.new( "Jingle" );
+    // Set the client procedure used to hash the strings.
+    Atom.set_hash_procedure( atom_hash );
 
-	// Attempt to create two new atoms, these should just point to our previous atoms
-	a11 := Atom.new( "John" );
-	a21 := Atom.new( "Jacob" );
+    {
+        // Allocate an atom for the same static string
+        a1 := Atom.allocate( "John" );
+        a2 := Atom.allocate( "John" );
+        
+        assert( a1 == a2 );
+        assert( Atom.get_content( a1 ) == "John" && Atom.get_content_length( a1 ) == 4 );
+        assert( Atom.get_content( a2 ) == "John" && Atom.get_content_length( a2 ) == 4 );
 
-	// Check that atoms that have the same string contents point to the same atom
-	if a1 != a11 {
-		print( "Atoms should point to the same address.\n" );
-		print( "a1 address == %\n", a1 );
-		print( "a3 address == %\n", a11 );
+    }
 
-	}
+    {
+        // Allocate an atom using the same string variable
+        s1 := "Jacob";
+        a1 := Atom.allocate( s1 );
+        a2 := Atom.allocate( s1 );
 
-	if a2 != a21 {
-		print( "Atoms should point to the same address.\n" );
-		print( "a1 address == %\n", a2 );
-		print( "a3 address == %\n", a21 );
-	}
+        assert( a1 == a2 );
+        assert( Atom.get_content( a1 ) == "Jacob" && Atom.get_content_length( a1 ) == 5 );
+        assert( Atom.get_content( a2 ) == "Jacob" && Atom.get_content_length( a2 ) == 5 );
 
-	// Retrieve the contents of the atom (the strings)	
-	print( "a1  value == %, content == %, Length == %\n", Atom.get_content( a1 ),  Atom.get_length( a1 ) );
-	print( "a11 content == %, Length == %\n", Atom.get_content( a11 ), Atom.get_length( a11 ) );
-	print( "a2  content == %, Length == %\n", Atom.get_content( a2 ),  Atom.get_length( a2 ) );
-	print( "a21 content == %, Length == %\n", Atom.get_content( a21 ), Atom.get_length( a21 ) );
-	print( "a3  content == %, Length == %\n", Atom.get_content( a3 ),  Atom.get_length( a3 ) );
+    }
 
+    {
+        // Allocate an atom using two different string variables
+        s0: string = "Jingle";
+        s1: string;
+        s2: string;
 
-	return;
+        s1.data = alloc( 4 );
+        assert( s1.data != null );
+        s1.count = s0.count;
+        memcpy( s1.data, s0.data, s0.count );
+
+        s2.data = alloc( 4 );
+        assert( s2.data != null );
+        s2.count = s0.count;
+        memcpy( s2.data, s0.data, s0.count );
+
+        a1 := Atom.allocate( s1 );
+        a2 := Atom.allocate( s2 );
+
+        assert( s1.data != s2.data && a1 == a2 );
+
+        assert( Atom.get_content( a1 ) == "Jingle" && Atom.get_content_length( a1 ) == 6 );
+        assert( Atom.get_content( a2 ) == "Jingle" && Atom.get_content_length( a2 ) == 6 );
+    }
+
+    {
+        // Allocate several atoms and make sure they are unique
+        a1 := Atom.allocate( "Kevin" );
+        a2 := Atom.allocate( "Joey"  );
+
+        assert( a1 != a2 );
+        assert( Atom.get_content( a1 ) == "Kevin" && Atom.get_content_length( a1 ) == 5 );
+        assert( Atom.get_content( a2 ) == "Joey"  && Atom.get_content_length( a2 ) == 4 );
+    }
+
+    return;
 }
 
 #scope_file
 
 #import "Basic";
 Atom :: #import "Atom";
+
+atom_hash :: ( s: string ) -> ( u64 ) {
+    
+    // Client function used by the atom module to hash our input strings.
+    h: u64 = 0;
+    for i: 0..s.count-1 {
+        h += cast(u8) s[i];
+    }
+
+    return h;
+}
