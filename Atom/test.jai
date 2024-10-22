@@ -8,9 +8,9 @@ main :: () {
     Atom.set_hash_procedure( atom_hash );
 
     {
-        // Allocate an atom for the same static string
-        a1 := Atom.allocate( "John" );
-        a2 := Atom.allocate( "John" );
+        // new an atom for the same static string
+        a1 := Atom.new( "John" );
+        a2 := Atom.new( "John" );
         
         assert( a1 == a2 );
         assert( Atom.get_content( a1 ) == "John" && Atom.get_content_length( a1 ) == 4 );
@@ -19,10 +19,10 @@ main :: () {
     }
 
     {
-        // Allocate an atom using the same string variable
+        // new an atom using the same string variable
         s1 := "Jacob";
-        a1 := Atom.allocate( s1 );
-        a2 := Atom.allocate( s1 );
+        a1 := Atom.new( s1 );
+        a2 := Atom.new( s1 );
 
         assert( a1 == a2 );
         assert( Atom.get_content( a1 ) == "Jacob" && Atom.get_content_length( a1 ) == 5 );
@@ -31,7 +31,7 @@ main :: () {
     }
 
     {
-        // Allocate an atom using two different string variables
+        // new an atom using two different string variables
         s0: string = "Jingle";
         s1: string;
         s2: string;
@@ -46,8 +46,8 @@ main :: () {
         s2.count = s0.count;
         memcpy( s2.data, s0.data, s0.count );
 
-        a1 := Atom.allocate( s1 );
-        a2 := Atom.allocate( s2 );
+        a1 := Atom.new( s1 );
+        a2 := Atom.new( s2 );
 
         assert( s1.data != s2.data && a1 == a2 );
 
@@ -56,9 +56,9 @@ main :: () {
     }
 
     {
-        // Allocate several atoms and make sure they are unique
-        a1 := Atom.allocate( "Kevin" );
-        a2 := Atom.allocate( "Joey"  );
+        // new several atoms and make sure they are unique
+        a1 := Atom.new( "Kevin" );
+        a2 := Atom.new( "Joey"  );
 
         assert( a1 != a2 );
         assert( Atom.get_content( a1 ) == "Kevin" && Atom.get_content_length( a1 ) == 5 );

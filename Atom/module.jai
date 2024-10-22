@@ -24,7 +24,7 @@ set_hash_procedure :: ( procedure: (string) -> u64 ) {
     return;
 }
 
-allocate :: ( s: string ) -> ( atom: *Atom ) {
+new :: ( s: string ) -> ( atom: *Atom ) {
 
     // Copies the input string into a new Atom and returns a pointer to that Atom.
     // Atom's are case sensitive so "Test" and "test" return two different Atoms.
@@ -34,7 +34,6 @@ allocate :: ( s: string ) -> ( atom: *Atom ) {
     
     h := atom_hash( s );
     h = h % ATOM_TABLE_SIZE;
-
 
     found := false;
     atom := buckets[h];
