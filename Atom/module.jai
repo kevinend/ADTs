@@ -19,7 +19,6 @@ atom_hash: ( s: string ) -> ( u64 );
 set_hash_procedure :: ( procedure: (string) -> u64 ) {  
 
     // Bind the user-supplied hash procedure used to hash the input string to a bucket index.
-
     atom_hash = procedure;
     return;
 }
@@ -28,9 +27,8 @@ new :: ( s: string ) -> ( atom: *Atom ) {
 
     // Copies the input string into a new Atom and returns a pointer to that Atom.
     // Atom's are case sensitive so "Test" and "test" return two different Atoms.
-
     assert( s.count > 0, "Cannot create Atom whose length is zero." );
-    assert( atom_hash != null, "Hash procedure MUST be set by the client before creating an Atom." );
+    assert( atom_hash != null, "Hash procedure *must* be set by the client before creating an Atom." );
     
     h := atom_hash( s );
     h = h % ATOM_TABLE_SIZE;
@@ -63,7 +61,6 @@ new :: ( s: string ) -> ( atom: *Atom ) {
 get_content :: ( atom: *Atom ) -> ( s: string ) {
 
     // Returns the string data that is stored within the Atom pointed to by the argument.
-
     assert( atom != null );
     return atom.content;
 }
@@ -71,7 +68,6 @@ get_content :: ( atom: *Atom ) -> ( s: string ) {
 get_content_length :: ( atom: *Atom ) -> ( c: int ) {
 
     // Returns the length of the string contained within the atom.
-
     assert( atom != null );
     return atom.content.count;
 }
