@@ -13,7 +13,8 @@ main :: () {
         assert( Stack.pop( numbers ) == 2 && Stack.count( numbers ) == 1 );
         assert( Stack.pop( numbers ) == 3 && Stack.count( numbers ) == 0 );
 
-        Stack.deallocate( numbers );
+        Stack.deallocate( *numbers );
+        assert( numbers == null );
     }
 
     {
@@ -31,7 +32,19 @@ main :: () {
         assert( Stack.is_empty( names ) == true );
         assert( Stack.count( names ) == 0 );
 
-        Stack.deallocate( names );
+        Stack.deallocate( *names );
+        assert( names == null );
+    }
+
+    {
+        // Allocate a stack of numbers.
+        // Free the stack even when the stack isn't empty
+        numbers := Stack.new( int );
+        Stack.push( numbers, 1 );
+        Stack.push( numbers, 2 );
+
+        Stack.deallocate( *numbers );
+        assert( numbers == null );
     }
 }
 

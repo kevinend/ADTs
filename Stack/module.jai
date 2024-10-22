@@ -73,12 +73,24 @@ count :: ( stack: *Stack($T) ) -> ( n: int ) {
     return stack.count;
 }
 
-deallocate :: ( stack: *Stack($T) ) {
+deallocate :: ( stack: **Stack($T) ) {
 
-    // Free the memory allocated to store the instance of the Stack structure.
+    // Free the memory allocated provisioned for the stack elements and then the stack instance.
     // Called 'deallocate' to avoid name collision with the 'Basic' libraries 'free' function.
-    assert( stack != null );
-    free( stack );
+    assert( (stack.*) != null );
+
+    c := (stack.*).head;
+    n := c;
+    while c != null {
+       n = c.next;
+       free( c );
+       c = n;
+    }
+
+    free( (stack.*) );
+
+    (stack.*) = null; 
+    return;
 }
 
 #scope_file
