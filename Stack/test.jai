@@ -2,33 +2,40 @@
 
 main :: () {
 
-	names: Stack(string);
+    {
+        // Allocate a stack of integers.
+        numbers := Stack.new( int );
+        Stack.push( numbers, 3 );
+        Stack.push( numbers, 2 );
+        Stack.push( numbers, 1 );
 
-	push( *names, "Jingle" );
-	push( *names, "Jacob"  );
-	push( *names, "John" );
+        assert( Stack.pop( numbers ) == 1 && Stack.count( numbers ) == 2 );
+        assert( Stack.pop( numbers ) == 2 && Stack.count( numbers ) == 1 );
+        assert( Stack.pop( numbers ) == 3 && Stack.count( numbers ) == 0 );
 
-	print( "Count == %\n", count( *names ) );
+        Stack.deallocate( numbers );
+    }
 
-	// Empty the stack
-	while !is_empty( *names ) {
-		print( "Count == %\n, Name == %\n", pop( *names ), count( *names ) );	
-	}
+    {
+        // Allocate a stack of strings
+        names := Stack.new( string );
+        Stack.push( names, "Heimer-Schmidt" );
+        Stack.push( names, "Jingle" ); 
+        Stack.push( names, "Jacob" ); 
+        Stack.push( names, "John" ); 
 
-	// Add new entries onto the stack
-	push( *names, "Schmidt" );
-	push( *names, "Heimer" );
+        assert( Stack.count( names ) == 4 );
 
-	// Empty the new stack elements
-	while !is_empty( *names ) {
-		print( "Count == %\n, Name == %\n", pop( *names ), count( *names ) );	
-	}
+        while !Stack.is_empty( names ) {  Stack.pop( names ); }
 
-	// Stack is empty, crash.
-	pop( *names ); 
+        assert( Stack.is_empty( names ) == true );
+        assert( Stack.count( names ) == 0 );
+
+        Stack.deallocate( names );
+    }
 }
 
 #scope_file
 
 #import "Basic";
-#import "Stack";
+Stack :: #import "Stack";
