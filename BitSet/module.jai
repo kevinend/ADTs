@@ -21,7 +21,7 @@ BitSet :: struct {
     memory:    Memory_Alias;
 }
 
-allocate :: ( bit_count: int ) -> ( set: *BitSet ) {
+new :: ( bit_count: int ) -> ( set: *BitSet ) {
     
     // Allocates BitSet with enough memory to contain 'bit_count' number of bits. Memory is initialized to zero.
     // The number of bytes allocated is a multiple of size_of(u64) which is the largest memory alias for the BitSet's bytes.
@@ -54,7 +54,7 @@ allocate :: ( bit_count: int ) -> ( set: *BitSet ) {
 deallocate :: ( set: *BitSet ) {
 
     // Free the memory associated with the set, then free the set instance.
-    
+    // Named 'deallocate' so as to avoid name collisions with 'Basic' module's procedure free.
     assert( set != null );
     assert( set.memory.as_u8 != null );
 
@@ -74,7 +74,6 @@ get_bit_count :: ( set: *BitSet ) -> ( bit_count: int ) {
 get_bit :: ( set: *BitSet, n: int ) -> ( bit: int ) {
 
     // Returns the value of the n-th bit in the BitSet instance.
-    
     assert( set != null );
     assert( n >= 0,            "Can't find a bit whose index is less than 0." );
     assert( n < set.bit_count, "Bit index exceeds the total number of bits in the bit set." );
@@ -330,7 +329,7 @@ set_union :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
     else
     if B == null { return copy( A ); }
     else {
-        C := allocate( A.bit_count );
+        C : *BitSet = new( A.bit_count );
         n := bits_to_number_of_u64s( C.bit_count );
         for i: 0..n-1 {
             C.memory.as_u64[i] = A.memory.as_u64[i] | B.memory.as_u64[i];
@@ -352,7 +351,7 @@ set_intersection :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
     else
     if B == null { return copy( A ); }
     else {
-        C := allocate( A.bit_count );
+        C : *BitSet = new( A.bit_count );
         n := bits_to_number_of_u64s( C.bit_count );
         for i: 0..n-1 {
             C.memory.as_u64[i] = A.memory.as_u64[i] & B.memory.as_u64[i];
@@ -379,7 +378,7 @@ set_difference :: ( A: *BitSet, B: *BitSet ) -> ( C: *BitSet ) {
     else
     if B == null { return copy( A ); }
     else {
-        C := allocate( A.bit_count );
+        C : *BitSet = new( A.bit_count );
         n := bits_to_number_of_u64s( C.bit_count );
         for i: 0..n-1 {
             C.memory.as_u64[i] = A.memory.as_u64[i] & ~B.memory.as_u64[i];
@@ -466,7 +465,7 @@ copy :: ( B: *BitSet ) -> ( C: *BitSet ) {
 
     bits := get_bit_count( B );
 
-    C: *BitSet = allocate( bits );
+    C: *BitSet = new( bits );
 
     multiples  := bits_to_number_of_u64s( bits );
     byte_count := multiples * size_of(u64);

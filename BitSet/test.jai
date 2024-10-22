@@ -7,10 +7,10 @@ main :: () {
     
     {
         // Allocate, get bit count, get set bit count, deallocate
-        a := BitSet.allocate( 8 );
-        b := BitSet.allocate( 16 );
-        c := BitSet.allocate( 32 );
-        d := BitSet.allocate( 64 );
+        a := BitSet.new( 8 );
+        b := BitSet.new( 16 );
+        c := BitSet.new( 32 );
+        d := BitSet.new( 64 );
 
         // Check bit counts of each bit set
         assert( BitSet.get_bit_count( a ) == 8 );
@@ -30,8 +30,9 @@ main :: () {
         // Update a couple of bits
         // Check the return of the previous value from update.
         // Check the number of set bits in the set.
+        // Deallocate
 
-        a := BitSet.allocate( 16 );
+        a := BitSet.new( 16 );
         assert( BitSet.get_bit( a, 0  ) == 0 );
         assert( BitSet.get_bit( a, 15 ) == 0 );
 
@@ -54,15 +55,16 @@ main :: () {
     }
 
     {
-        // Allocate a bit set
+        // Allocate bit set
         // Update a range of bits using 'set_bits'
         // Check set bit count
         // Get bit's from the bottom and top and middle of the range
         // Clear the bits
         // Check the set bit count
         // Get those same bits and make sure they are cleared.
+        // Deallocate
 
-        a := BitSet.allocate( 16 );
+        a := BitSet.new( 16 );
         
         BitSet.set_bits( a, 3, 12 ); // 4th to 13th bit 
         assert( BitSet.get_set_bit_count( a ) == 10 ); 
@@ -90,8 +92,8 @@ main :: () {
         // Test for equality 
         // Test subset operations
 
-        a := BitSet.allocate( 8 );
-        b := BitSet.allocate( 8 );
+        a := BitSet.new( 8 );
+        b := BitSet.new( 8 );
 
         BitSet.update_bit( a, 0, 1 );
         BitSet.update_bit( a, 1, 1 );
@@ -114,8 +116,8 @@ main :: () {
         // Allocate two bit sets
         // Take union, intersection and difference 
 
-        a := BitSet.allocate( 32 );
-        b := BitSet.allocate( 32 );
+        a := BitSet.new( 32 );
+        b := BitSet.new( 32 );
 
         BitSet.set_bits( a, 17, 23 ); // 7 bits
         BitSet.set_bits( b, 19, 25 ); // 7 bits, two past set a
@@ -138,6 +140,10 @@ main :: () {
 
         BitSet.deallocate( a );
         BitSet.deallocate( b );
+        BitSet.deallocate( u );
+        BitSet.deallocate( i );
+        BitSet.deallocate( d );
+
     }
 
     return; 
