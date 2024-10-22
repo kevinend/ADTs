@@ -447,6 +447,7 @@ bits_to_number_of_u64s :: ( bit_count: int ) -> int #expand {
 //  In this example, the last byte (index = 7) needs bits 0 through 2 set. A mask of 0x07 (0000_0111) will make sure that the least-significant bits starting FROM the zeroeth bit are set.
 //   
 //           0_0_0_0__0_1_1_1
+//
 //  Bit:     7 6 5 4  3 2 1 0
 //
 // Summary: 'low'  % 8 == 0 means all the bits in the byte need set
